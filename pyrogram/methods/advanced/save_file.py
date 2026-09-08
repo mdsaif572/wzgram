@@ -200,14 +200,14 @@ class SaveFile:
             file_total_parts = int(math.ceil(file_size / part_size))
             is_big = file_size > 10 * 1024 * 1024
             if is_bot:
-                rate_limit = 40  # ~20 MiB/s
-                pool_size = min(8, POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_BOT", 40))  # ~20 MiB/s
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_BOT", 6)), POOL_SIZE) if is_big else 1
             elif is_premium:
-                rate_limit = 300
-                pool_size = min(14, POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_PREMIUM", 110))  # ~55 MiB/s (~450 Mbps)
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_PREMIUM", 6)), POOL_SIZE) if is_big else 1
             else:
-                rate_limit = 50  # ~25 MiB/s
-                pool_size = min(12, POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_USER", 50))  # ~25 MiB/s
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_USER", 6)), POOL_SIZE) if is_big else 1
 
             is_missing_part = file_id is not None
             file_id = file_id or self.rnd_id()
@@ -229,10 +229,18 @@ class SaveFile:
             _next_dispatch = 0.0
             _dispatch_interval = 1.0 / rate_limit
             _stalled_since = 0.0
+            _last_report_time = 0.0
 
-            async def _report(parts: int) -> None:
+            async def _report(parts: int, force: bool = False) -> None:
+                nonlocal _last_report_time
                 if not progress:
                     return
+
+                now = time.monotonic()
+                if not force and (now - _last_report_time) < 0.25:
+                    return
+
+                _last_report_time = now
 
                 func = functools.partial(
                     progress, min(parts * part_size, file_size), file_size, *progress_args
@@ -352,7 +360,7 @@ class SaveFile:
                     ):
                         raise r
 
-                await _report(file_total_parts)
+                await _report(file_total_parts, force=True)
 
                 if is_big:
                     return raw.types.InputFileBig(
