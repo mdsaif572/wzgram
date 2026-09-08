@@ -211,7 +211,7 @@ class SaveFile:
 
             is_missing_part = file_id is not None
             file_id = file_id or self.rnd_id()
-            md5_sum = md5() if not is_big and not is_missing_part else None
+            md5_sum = md5() if not is_big and not is_missing_part and not is_bot else None
 
             dc_id = await self.storage.dc_id()
             pool = await self._get_media_session_pool(dc_id, pool_size)
@@ -339,7 +339,7 @@ class SaveFile:
                                     raise r
                             return None
 
-                        if not is_big and not is_missing_part:
+                        if not is_big and not is_missing_part and not is_bot:
                             md5_sum.update(chunk)
 
                         rpc = None

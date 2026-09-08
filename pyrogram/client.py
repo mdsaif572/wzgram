@@ -1453,20 +1453,20 @@ class Client(Methods):
                 _is_premium = self.me.is_premium if hasattr(self.me, 'is_premium') else False
 
                 if _is_bot:
-                    dl_pool_size = 4
-                    dl_workers_per_session = 3
-                    dl_rate = 20
-                    dl_burst = 10
+                    dl_pool_size = int(os.environ.get("WZGRAM_DL_POOL_BOT", 2))
+                    dl_workers_per_session = int(os.environ.get("WZGRAM_DL_WORKERS_BOT", 2))
+                    dl_rate = int(os.environ.get("WZGRAM_DL_RATE_BOT", 15))
+                    dl_burst = int(os.environ.get("WZGRAM_DL_BURST_BOT", 5))
                 elif _is_premium:
-                    dl_pool_size = 3
-                    dl_workers_per_session = 6
-                    dl_rate = 100
-                    dl_burst = 50
+                    dl_pool_size = int(os.environ.get("WZGRAM_DL_POOL_PREMIUM", 2))
+                    dl_workers_per_session = int(os.environ.get("WZGRAM_DL_WORKERS_PREMIUM", 3))
+                    dl_rate = int(os.environ.get("WZGRAM_DL_RATE_PREMIUM", 40))
+                    dl_burst = int(os.environ.get("WZGRAM_DL_BURST_PREMIUM", 20))
                 else:
-                    dl_pool_size = 3
-                    dl_workers_per_session = 4
-                    dl_rate = 30
-                    dl_burst = 15
+                    dl_pool_size = int(os.environ.get("WZGRAM_DL_POOL_USER", 2))
+                    dl_workers_per_session = int(os.environ.get("WZGRAM_DL_WORKERS_USER", 2))
+                    dl_rate = int(os.environ.get("WZGRAM_DL_RATE_USER", 20))
+                    dl_burst = int(os.environ.get("WZGRAM_DL_BURST_USER", 8))
 
                 total_chunks = math.ceil((file_size - offset_bytes) / chunk_size)
                 pool_size = min(dl_pool_size, total_chunks)
