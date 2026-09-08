@@ -20,6 +20,7 @@ import asyncio
 import bisect
 import logging
 import os
+import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha1
@@ -617,7 +618,42 @@ class Session:
         if self.connection is None or self.connection.protocol is None:
             raise OSError("Connection is not established")
 
-        serialized = data.write()
+        if isinstance(data, raw.functions.upload.SaveBigFilePart):
+            data_len = len(data.bytes)
+            if data_len > 253:
+                pad = (4 - (data_len % 4)) % 4
+                serialized = (
+                    struct.pack("<IqiiB", 0xde7b673d, data.file_id, data.file_part, data.file_total_parts, 0xfe)
+                    + data_len.to_bytes(3, "little")
+                    + data.bytes
+                    + (b"\x00" * pad if pad else b"")
+                )
+            else:
+                pad = (4 - ((data_len + 1) % 4)) % 4
+                serialized = (
+                    struct.pack("<IqiiB", 0xde7b673d, data.file_id, data.file_part, data.file_total_parts, data_len)
+                    + data.bytes
+                    + (b"\x00" * pad if pad else b"")
+                )
+        elif isinstance(data, raw.functions.upload.SaveFilePart):
+            data_len = len(data.bytes)
+            if data_len > 253:
+                pad = (4 - (data_len % 4)) % 4
+                serialized = (
+                    struct.pack("<IqiB", 0xb304a621, data.file_id, data.file_part, 0xfe)
+                    + data_len.to_bytes(3, "little")
+                    + data.bytes
+                    + (b"\x00" * pad if pad else b"")
+                )
+            else:
+                pad = (4 - ((data_len + 1) % 4)) % 4
+                serialized = (
+                    struct.pack("<IqiB", 0xb304a621, data.file_id, data.file_part, data_len)
+                    + data.bytes
+                    + (b"\x00" * pad if pad else b"")
+                )
+        else:
+            serialized = data.write()
         message = self.msg_factory(data, len(serialized))
         msg_id = message.msg_id
 

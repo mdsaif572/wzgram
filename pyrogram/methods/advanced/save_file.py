@@ -201,13 +201,13 @@ class SaveFile:
             is_big = file_size > 10 * 1024 * 1024
             if is_bot:
                 rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_BOT", 40))  # ~20 MiB/s
-                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_BOT", 6)), POOL_SIZE) if is_big else 1
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_BOT", 2)), POOL_SIZE) if is_big else 1
             elif is_premium:
-                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_PREMIUM", 110))  # ~55 MiB/s (~450 Mbps)
-                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_PREMIUM", 6)), POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_PREMIUM", 80))  # ~40 MiB/s (~320 Mbps)
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_PREMIUM", 3)), POOL_SIZE) if is_big else 1
             else:
-                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_USER", 50))  # ~25 MiB/s
-                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_USER", 6)), POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_USER", 40))  # ~20 MiB/s
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_USER", 2)), POOL_SIZE) if is_big else 1
 
             is_missing_part = file_id is not None
             file_id = file_id or self.rnd_id()
@@ -237,7 +237,7 @@ class SaveFile:
                     return
 
                 now = time.monotonic()
-                if not force and (now - _last_report_time) < 0.25:
+                if not force and (now - _last_report_time) < 0.5:
                     return
 
                 _last_report_time = now
@@ -297,33 +297,37 @@ class SaveFile:
 
                         _now = time.monotonic()
                         if _now < _next_dispatch:
-                            await asyncio.sleep(_next_dispatch - _now)
+                            _delay = _next_dispatch - _now
+                            if _delay > 0.02:
+                                await asyncio.sleep(_delay)
                         _next_dispatch = max(time.monotonic(), _next_dispatch) + _dispatch_interval
 
                         await budget.acquire()
 
-                        while True:
-                            try:
-                                await asyncio.wait_for(queue.put(rpc), timeout=30)
-                                _stalled_since = 0.0
-                                break
-                            except asyncio.TimeoutError:
-                                await _check_workers()
-                                _now = time.monotonic()
-                                if _stalled_since == 0.0:
-                                    _stalled_since = _now
-                                    log.warning(
-                                        "Upload queue full: workers throttled (flood/connection churn), "
-                                        "waiting up to %ss",
-                                        STALL_TIMEOUT,
-                                    )
-                                elif _now - _stalled_since > STALL_TIMEOUT:
-                                    raise TimeoutError(
-                                        "Upload stalled: no part completed for "
-                                        f"{STALL_TIMEOUT}s while workers are alive "
-                                        "(flood or network throttling)"
-                                    )
-                                await asyncio.sleep(1)
+                        try:
+                            queue.put_nowait(rpc)
+                            _stalled_since = 0.0
+                        except asyncio.QueueFull:
+                            while True:
+                                try:
+                                    await asyncio.wait_for(queue.put(rpc), timeout=STALL_TIMEOUT)
+                                    _stalled_since = 0.0
+                                    break
+                                except asyncio.TimeoutError:
+                                    await _check_workers()
+                                    _now = time.monotonic()
+                                    if _stalled_since == 0.0:
+                                        _stalled_since = _now
+                                        log.warning(
+                                            "Upload queue full: workers throttled, waiting up to %ss",
+                                            STALL_TIMEOUT,
+                                        )
+                                    elif _now - _stalled_since > STALL_TIMEOUT:
+                                        raise TimeoutError(
+                                            "Upload stalled: no part completed for "
+                                            f"{STALL_TIMEOUT}s while workers are alive"
+                                        )
+                                    await asyncio.sleep(1)
 
                         if is_missing_part:
                             next_batch_task.cancel()
