@@ -200,14 +200,14 @@ class SaveFile:
             file_total_parts = int(math.ceil(file_size / part_size))
             is_big = file_size > 10 * 1024 * 1024
             if is_bot:
-                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_BOT", 50))  # ~25 MiB/s (Heroku-safe)
-                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_BOT", 3)), POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_BOT", 120))  # ~60 MiB/s
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_BOT", 5)), POOL_SIZE) if is_big else 1
             elif is_premium:
-                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_PREMIUM", 80))  # ~40 MiB/s
-                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_PREMIUM", 4)), POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_PREMIUM", 160))  # ~80 MiB/s
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_PREMIUM", 6)), POOL_SIZE) if is_big else 1
             else:
-                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_USER", 50))  # ~25 MiB/s
-                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_USER", 3)), POOL_SIZE) if is_big else 1
+                rate_limit = int(os.environ.get("WZGRAM_UPLOAD_RATE_USER", 120))  # ~60 MiB/s
+                pool_size = min(int(os.environ.get("WZGRAM_UPLOAD_POOL_USER", 5)), POOL_SIZE) if is_big else 1
 
             is_missing_part = file_id is not None
             file_id = file_id or self.rnd_id()
