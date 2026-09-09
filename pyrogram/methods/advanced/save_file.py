@@ -267,7 +267,7 @@ class SaveFile:
                     if not batch:
                         next_batch_task.cancel()
                         if not is_big and not is_missing_part:
-                            md5_sum = md5_sum.hexdigest()
+                            md5_sum = md5_sum.hexdigest() if md5_sum is not None else ""
                         break
 
                     async def _check_workers():
@@ -377,7 +377,7 @@ class SaveFile:
                         id=file_id,
                         parts=file_total_parts,
                         name=file_name,
-                        md5_checksum=md5_sum,
+                        md5_checksum=md5_sum or "",
                     )
             finally:
                 if next_batch_task is not None and not next_batch_task.done():
